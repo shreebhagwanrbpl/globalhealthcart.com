@@ -35,8 +35,8 @@ export function normalizeProduct(item, defaultCategory = "Diagnostic Equipment")
   let features = Array.isArray(item.features)
     ? item.features.filter(Boolean)
     : typeof item.features === "string"
-    ? item.features.split(",").map((f) => f.trim()).filter(Boolean)
-    : [];
+      ? item.features.split(",").map((f) => f.trim()).filter(Boolean)
+      : [];
 
   return {
     ...item,
@@ -96,8 +96,8 @@ export async function fetchAllDynamicProducts() {
 
     // 2. Fetch extra fallback collections if any
     const extraSnapshots = await Promise.allSettled([
-      getDocs(collection(db, "websites", "clinidixcom", "products")),
-      getDocs(collection(db, "websites", "clinidixcom", "items")),
+      getDocs(collection(db, "websites", "globalhealthcartcom", "products")),
+      getDocs(collection(db, "websites", "globalhealthcartcom", "items")),
       getDocs(collection(db, "products")),
       getDocs(collection(db, "items")),
     ]);
@@ -114,9 +114,5 @@ export async function fetchAllDynamicProducts() {
   }
 
   const fetchedList = Array.from(productsMap.values());
-  if (fetchedList.length > 0) {
-    return fetchedList;
-  }
-
-  return fallbackProducts;
+  return fetchedList;
 }

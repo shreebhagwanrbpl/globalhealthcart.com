@@ -58,7 +58,7 @@ export default function ContactForm({
         collection(
           db,
           "websitesQueries",
-          "clinidixcom",
+          "globalhealthcartcom",
           "contactQueries"
         ),
         {
@@ -86,7 +86,7 @@ export default function ContactForm({
   };
 
   return (
-    <div className="rounded-3xl border border-[#E8D3BC] bg-white p-8 sm:p-10 shadow-xl shadow-[#C05800]/10">
+    <div className="rounded-3xl border border-[#E4D2C0] bg-white p-8 sm:p-10 shadow-xl shadow-[#9E532B]/10">
       {title && (
         <h3 className="text-2xl font-bold text-[#38240D] sm:text-3xl">
           {title}
@@ -94,7 +94,7 @@ export default function ContactForm({
       )}
 
       {subtitle && (
-        <p className="mt-2 text-sm sm:text-base text-[#5B4634]">
+        <p className="mt-2 text-sm sm:text-base text-[#6B5645]">
           {subtitle}
         </p>
       )}
@@ -112,7 +112,7 @@ export default function ContactForm({
                 value={form.name}
                 onChange={handleChange}
                 placeholder="e.g. Dr. Rajesh Kumar"
-                className="w-full rounded-2xl border border-[#E8D3BC] bg-[#FFF9EF]/50 px-4 py-3.5 pl-11 text-sm text-[#38240D] transition-all focus:border-[#C05800] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C05800]/20"
+                className="w-full rounded-2xl border border-[#E4D2C0] bg-[#FAF5EE]/60 px-4 py-3.5 pl-11 text-sm text-[#38240D] transition-all focus:border-[#9E532B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#9E532B]/20"
                 required
               />
               <User
@@ -133,7 +133,7 @@ export default function ContactForm({
                 value={form.phone}
                 onChange={handleChange}
                 placeholder="10-digit mobile number"
-                className="w-full rounded-2xl border border-[#E8D3BC] bg-[#FFF9EF]/50 px-4 py-3.5 pl-11 text-sm text-[#38240D] transition-all focus:border-[#C05800] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C05800]/20"
+                className="w-full rounded-2xl border border-[#E4D2C0] bg-[#FAF5EE]/60 px-4 py-3.5 pl-11 text-sm text-[#38240D] transition-all focus:border-[#9E532B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#9E532B]/20"
                 required
               />
               <Phone
@@ -155,7 +155,7 @@ export default function ContactForm({
               value={form.email}
               onChange={handleChange}
               placeholder="name@hospital.com"
-              className="w-full rounded-2xl border border-[#E8D3BC] bg-[#FFF9EF]/50 px-4 py-3.5 pl-11 text-sm text-[#38240D] transition-all focus:border-[#C05800] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C05800]/20"
+              className="w-full rounded-2xl border border-[#E4D2C0] bg-[#FAF5EE]/60 px-4 py-3.5 pl-11 text-sm text-[#38240D] transition-all focus:border-[#9E532B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#9E532B]/20"
               required
             />
             <Mail
@@ -176,7 +176,7 @@ export default function ContactForm({
               value={form.message}
               onChange={handleChange}
               placeholder="Tell us about your hospital/laboratory equipment requirements, required quantities, or service location..."
-              className="w-full rounded-2xl border border-[#E8D3BC] bg-[#FFF9EF]/50 px-4 py-3.5 pl-11 text-sm text-[#38240D] transition-all focus:border-[#C05800] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C05800]/20"
+              className="w-full rounded-2xl border border-[#E4D2C0] bg-[#FAF5EE]/60 px-4 py-3.5 pl-11 text-sm text-[#38240D] transition-all focus:border-[#9E532B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#9E532B]/20"
               required
             />
             <MessageSquare
@@ -189,20 +189,20 @@ export default function ContactForm({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#C05800] py-4 text-base font-bold text-white shadow-lg transition-all hover:bg-[#713600] hover:shadow-xl hover:shadow-[#C05800]/25 disabled:opacity-60"
+          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#9E532B] py-4 text-base font-bold !text-white shadow-lg transition-all hover:bg-[#7D3B17] hover:shadow-xl hover:shadow-[#9E532B]/25 disabled:opacity-60"
         >
           {submitting ? (
-            <span>Submitting Inquiry...</span>
+            <span className="!text-white font-bold">Submitting Inquiry...</span>
           ) : (
             <>
-              <span>Submit Official Inquiry</span>
-              <Send size={18} />
+              <span className="!text-white font-bold">Submit Official Inquiry</span>
+              <Send size={18} className="!text-white" />
             </>
           )}
         </button>
 
-        <p className="flex items-center justify-center gap-2 text-xs text-[#5B4634] text-center pt-2">
-          <CheckCircle2 size={14} className="text-[#C05800]" />
+        <p className="flex items-center justify-center gap-2 text-xs text-[#6B5645] text-center pt-2">
+          <CheckCircle2 size={14} className="text-[#9E532B]" />
           <span>Your information is protected under strict privacy protocols.</span>
         </p>
       </form>

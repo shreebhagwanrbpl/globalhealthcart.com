@@ -85,22 +85,22 @@ export default function ProductCard({
   const displayStatus = status || availability || "In Stock";
 
   return (
-    <div className="group flex flex-col justify-between overflow-hidden rounded-3xl border border-[#E8D3BC]/80 bg-white shadow-md transition-all duration-300 hover:-translate-y-2 hover:border-[#C05800]/50 hover:shadow-2xl hover:shadow-[#C05800]/15">
+    <div className="group flex flex-col justify-between overflow-hidden rounded-3xl border border-[#E4D2C0] bg-white shadow-md transition-all duration-300 hover:-translate-y-2 hover:border-[#9E532B]/50 hover:shadow-2xl hover:shadow-[#9E532B]/15">
       <div>
         {/* Image Container Link */}
         <Link
           href={pdpLink}
-          className="relative block h-60 w-full overflow-hidden bg-gradient-to-b from-[#FFF9EF] to-white p-4 border-b border-[#E8D3BC]/40"
+          className="relative block h-60 w-full overflow-hidden bg-gradient-to-b from-[#FAF5EE] to-white p-4 border-b border-[#E4D2C0]/50"
         >
           {hasValidImage ? (
             <>
               {/* Shimmer loading skeleton */}
               {!imgLoaded && (
-                <div className="absolute inset-0 z-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#FDFBD4]/70 via-[#FFF9EF] to-[#F3E4D2]/70 animate-pulse">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/90 shadow-sm border border-[#E8D3BC]/60 text-[#C05800]">
-                    <Microscope size={26} className="animate-bounce text-[#C05800]" />
+                <div className="absolute inset-0 z-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#F5ECE1] via-[#FAF5EE] to-[#EFE1D2] animate-pulse">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/90 shadow-sm border border-[#E4D2C0] text-[#9E532B]">
+                    <Microscope size={26} className="animate-bounce text-[#9E532B]" />
                   </div>
-                  <span className="mt-2 text-[11px] font-bold uppercase tracking-wider text-[#713600]/70">
+                  <span className="mt-2 text-[11px] font-bold uppercase tracking-wider text-[#6B5645]">
                     Loading Image...
                   </span>
                 </div>
@@ -120,14 +120,14 @@ export default function ProductCard({
             </>
           ) : (
             /* Premium Medical Instrument Placeholder */
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#FFF9EF] via-[#FDFBD4] to-[#F3E4D2] p-6 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-md border border-[#E8D3BC] text-[#C05800] transition-transform duration-300 group-hover:scale-110">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#FAF5EE] via-[#F5ECE1] to-[#EFE1D2] p-6 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-md border border-[#E4D2C0] text-[#9E532B] transition-transform duration-300 group-hover:scale-110">
                 <Microscope size={32} />
               </div>
               <span className="mt-3 text-xs font-extrabold uppercase tracking-wider text-[#38240D]">
                 {category || "Diagnostic Equipment"}
               </span>
-              <span className="mt-0.5 text-[10px] font-semibold text-[#713600]/80">
+              <span className="mt-0.5 text-[10px] font-semibold text-[#6B5645]">
                 Certified Specification
               </span>
             </div>
@@ -136,7 +136,7 @@ export default function ProductCard({
           {/* Overlay Badges */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
             {badge ? (
-              <span className="rounded-full border border-[#C05800]/30 bg-white/95 backdrop-blur-md px-3 py-1 text-xs font-extrabold text-[#C05800] shadow-sm">
+              <span className="rounded-full border border-[#9E532B]/30 bg-white/95 backdrop-blur-md px-3 py-1 text-xs font-extrabold text-[#9E532B] shadow-sm">
                 {badge}
               </span>
             ) : (
@@ -145,7 +145,7 @@ export default function ProductCard({
               </span>
             )}
 
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#C05800] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm shrink-0">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#9E532B] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm shrink-0">
               <ShieldCheck size={12} />
               {displayStatus}
             </span>
@@ -155,35 +155,30 @@ export default function ProductCard({
         {/* Details */}
         <div className="p-6">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#C05800] truncate">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#9E532B] truncate">
               {subCategory && subCategory !== category ? `${category} • ${subCategory}` : category}
             </span>
-            {/* {price && String(price).trim() && (
-              <span className="text-sm font-extrabold text-[#38240D] shrink-0">
-                ₹ {price}
-              </span>
-            )} */}
           </div>
 
           <Link href={pdpLink} className="block mt-1.5">
-            <h3 className="text-xl font-bold text-[#38240D] leading-tight group-hover:text-[#C05800] transition-colors line-clamp-2">
+            <h3 className="text-xl font-bold text-[#38240D] leading-tight group-hover:text-[#9E532B] transition-colors line-clamp-2">
               {title}
             </h3>
           </Link>
 
           {displayDesc && (
-            <p className="mt-2.5 text-sm text-[#5B4634] line-clamp-2 leading-relaxed">
+            <p className="mt-2.5 text-sm text-[#6B5645] line-clamp-2 leading-relaxed">
               {displayDesc}
             </p>
           )}
 
           {/* Key Dynamic Specs (2-3 specs only) */}
           {dynamicSpecs.length > 0 && (
-            <div className="mt-4 rounded-2xl border border-[#E8D3BC]/60 bg-[#FFF9EF]/80 p-3 space-y-1.5 text-xs text-[#5B4634]">
+            <div className="mt-4 rounded-2xl border border-[#E4D2C0] bg-[#F6ECE3] p-3 space-y-1.5 text-xs text-[#6B5645]">
               {dynamicSpecs.slice(0, 3).map(([key, val]) => (
                 <div key={key} className="flex justify-between items-center gap-2">
                   <span className="font-bold text-[#38240D]">{key}:</span>
-                  <span className="text-[#C05800] font-semibold truncate max-w-[170px]">{val}</span>
+                  <span className="text-[#9E532B] font-semibold truncate max-w-[170px]">{val}</span>
                 </div>
               ))}
             </div>
@@ -195,7 +190,7 @@ export default function ProductCard({
       <div className="p-6 pt-0 mt-2 flex items-center gap-3">
         <Link
           href={pdpLink}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#C05800] py-3 text-center text-sm font-bold !text-white shadow-md transition-all hover:bg-[#713600] hover:shadow-lg group/btn"
+          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#9E532B] py-3 text-center text-sm font-bold !text-white shadow-md transition-all hover:bg-[#7D3B17] hover:shadow-lg group/btn"
         >
           <span className="!text-white text-white font-bold text-sm tracking-wide">
             Inquire Price & Specs

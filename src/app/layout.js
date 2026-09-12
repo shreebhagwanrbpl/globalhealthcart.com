@@ -6,7 +6,7 @@ import { Toaster } from "react-hot-toast";
 
 export const metadata = {
   metadataBase: new URL(
-    "https://clinidix.com"
+    "https://globalhealthcart.com"
   ),
 
   title:
@@ -34,7 +34,7 @@ export const metadata = {
     description:
       "Warm neutral surfaces create a sophisticated, welcoming healthcare marketplace.",
 
-    url: "https://clinidix.com",
+    url: "https://globalhealthcart.com",
 
     siteName: "Raj Biosis Private Limited",
 
@@ -70,7 +70,7 @@ export const metadata = {
   },
 
   alternates: {
-    canonical: "https://clinidix.com",
+    canonical: "https://globalhealthcart.com",
   },
 };
 
@@ -79,7 +79,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased variant-18" data-ui-variant="sand" suppressHydrationWarning>
+      <body className="antialiased bg-[#FAF5EE] text-[#38240D]" suppressHydrationWarning>
         <Navbar />
 
         <main>

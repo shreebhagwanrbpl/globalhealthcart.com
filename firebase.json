@@ -1,6 +1,6 @@
 {
   "apphosting": {
-    "backendId": "clinidixcom",
+    "backendId": "globalhealthcartcom",
     "rootDir": "/",
     "ignore": [
       "node_modules",

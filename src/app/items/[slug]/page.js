@@ -11,7 +11,7 @@ export async function generateMetadata({ params }) {
 
     const description = `Buy ${productName} at best price in India. Trusted supplier, dealer and distributor of ${productName} for hospitals, laboratories, diagnostic centers, research institutes and healthcare facilities. Contact Raj Biosis Private Limited (Raj Biomedical) for latest quotation and product details.`;
 
-    const url = `https://clinidix.com/items/${slug}`;
+    const url = `https://globalhealthcart.com/items/${slug}`;
 
     return {
         title,
@@ -74,7 +74,7 @@ export async function generateMetadata({ params }) {
             },
         },
 
-        metadataBase: new URL("https://clinidix.com"),
+        metadataBase: new URL("https://globalhealthcart.com"),
     };
 }
 

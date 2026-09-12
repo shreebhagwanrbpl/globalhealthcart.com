@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import PageBanner from "@/components/PageBanner";
@@ -52,7 +50,8 @@ const workflowSteps = [
 ];
 
 export default function ServicesPage() {
-  const [services, setServices] = useState(fallbackServices);
+  const [services, setServices] = useState([]);
+  const [pageData, setPageData] = useState(null);
   const [contactInfo, setContactInfo] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -82,18 +81,22 @@ export default function ServicesPage() {
   useEffect(() => {
     const fetchServicesAndContact = async () => {
       try {
-        const [servicesSnap, contactSnap] = await Promise.all([
-          getDoc(doc(db, "websites", "clinidixcom", "pages", "services")),
-          getDoc(doc(db, "websites", "clinidixcom", "pages", "contact")),
+        const [{ doc, getDoc }, { db }] = await Promise.all([
+          import("firebase/firestore"),
+          import("@/lib/firebase"),
         ]);
 
-        if (servicesSnap.exists() && servicesSnap.data().services?.length > 0) {
-          const dbServices = servicesSnap.data().services.map((s, idx) => ({
-            ...fallbackServices[idx % fallbackServices.length],
-            title: s.title || fallbackServices[idx % fallbackServices.length].title,
-            desc: s.desc || fallbackServices[idx % fallbackServices.length].desc,
-          }));
-          setServices(dbServices);
+        const [servicesSnap, contactSnap] = await Promise.all([
+          getDoc(doc(db, "websites", "globalhealthcartcom", "pages", "services")),
+          getDoc(doc(db, "websites", "globalhealthcartcom", "pages", "contact")),
+        ]);
+
+        if (servicesSnap.exists()) {
+          const data = servicesSnap.data();
+          setPageData(data);
+          if (Array.isArray(data.services) && data.services.length > 0) {
+            setServices(data.services);
+          }
         }
 
         if (contactSnap.exists()) {
@@ -127,17 +130,20 @@ export default function ServicesPage() {
     return typeof item.value === "string" ? item.value.trim() : "";
   })();
 
+  const bannerTitle = pageData?.title?.trim() || "Biomedical Support From Setup to Service";
+  const bannerSubtitle = pageData?.description?.trim() || pageData?.subtitle?.trim() || "NABL-certified calibration, 2-hour emergency repair SLAs, cold-chain reagent distribution, and turnkey pathology setup.";
+
   return (
-    <div className="bg-[#FFF9EF]/40 text-[#38240D]">
+    <div className="bg-[#FAF5EE] text-[#38240D]">
       {/* Banner */}
       <PageBanner
         badge="Technical Services"
-        title="Biomedical Support From Setup to Service"
-        subtitle="NABL-certified calibration, 2-hour emergency repair SLAs, cold-chain reagent distribution, and turnkey pathology setup."
+        title={bannerTitle}
+        subtitle={bannerSubtitle}
       />
 
       {/* Services Grid Section */}
-      <section className="section-padding bg-gradient-to-b from-white via-[#FFF9EF] to-[#FDFBD4]">
+      <section className="section-padding bg-gradient-to-b from-white via-[#FAF5EE] to-[#F5ECE1]">
         <div className="container-custom">
           <SectionTitle
             badge="Full Service Catalog"
@@ -146,24 +152,31 @@ export default function ServicesPage() {
             center
           />
 
-          <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {services.map((service, index) => (
-              <ServiceCard
-                key={service.id || index}
-                icon={icons[index % icons.length]}
-                title={service.title}
-                description={service.desc}
-                badge={service.badge}
-                turnaround={service.turnaround}
-                highlights={service.highlights}
-              />
-            ))}
-          </div>
+          {services.length > 0 ? (
+            <div className="mt-14 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {services.map((service, index) => (
+                <ServiceCard
+                  key={service.id || index}
+                  icon={icons[index % icons.length]}
+                  title={service.title}
+                  description={service.desc || service.description}
+                  badge={service.badge}
+                  turnaround={service.turnaround}
+                  highlights={service.highlights}
+                  makeLink={makeLink}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-14 text-center py-12 rounded-3xl border border-[#E4D2C0] bg-white">
+              <p className="text-[#6B5645] font-semibold">Loading technical engineering services...</p>
+            </div>
+          )}
         </div>
       </section>
 
       {/* Workflow Process Section */}
-      <section className="section-padding bg-white border-y border-[#E8D3BC]/60">
+      <section className="section-padding bg-white border-y border-[#E4D2C0]">
         <div className="container-custom">
           <SectionTitle
             badge="Execution Framework"
@@ -172,35 +185,35 @@ export default function ServicesPage() {
             center
           />
 
-          <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-14 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             {workflowSteps.map((step, index) => {
               const Icon = step.icon;
               return (
                 <div
                   key={index}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-[#E8D3BC] bg-[#FFF9EF] p-8 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:border-[#C05800] hover:shadow-xl"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-[#E4D2C0] bg-[#FAF5EE] p-8 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:border-[#9E532B] hover:shadow-xl"
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-4xl font-black text-[#C05800]/40 group-hover:text-[#C05800] transition-colors">
+                      <span className="text-4xl font-black text-[#9E532B]/40 group-hover:text-[#9E532B] transition-colors">
                         {step.step}
                       </span>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#C05800] shadow-sm">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#9E532B] shadow-sm border border-[#E4D2C0]">
                         <Icon size={24} />
                       </div>
                     </div>
 
-                    <h3 className="mt-6 text-xl font-bold text-[#38240D] group-hover:text-[#C05800] transition-colors">
+                    <h3 className="mt-6 text-xl font-bold text-[#38240D] group-hover:text-[#9E532B] transition-colors">
                       {step.title}
                     </h3>
 
-                    <p className="mt-3 text-sm leading-relaxed text-[#5B4634]">
+                    <p className="mt-3 text-sm leading-relaxed text-[#6B5645]">
                       {step.desc}
                     </p>
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-[#E8D3BC]/40">
-                    <span className="text-xs font-bold text-[#713600]">Phase {index + 1} Milestone</span>
+                  <div className="mt-6 pt-4 border-t border-[#E4D2C0]/60">
+                    <span className="text-xs font-bold text-[#9E532B]">Phase {index + 1} Milestone</span>
                   </div>
                 </div>
               );
@@ -210,12 +223,12 @@ export default function ServicesPage() {
       </section>
 
       {/* Breakdown SLA Box */}
-      <section className="section-padding bg-gradient-to-b from-[#FDFBD4] via-white to-[#FFF9EF]">
+      <section className="section-padding bg-gradient-to-b from-[#FAF5EE] via-white to-[#F5ECE1]">
         <div className="container-custom">
-          <div className="rounded-3xl border border-[#E8D3BC] bg-gradient-to-r from-[#38240D] to-[#5B4634] p-8 sm:p-12 text-white shadow-xl">
+          <div className="rounded-3xl border border-[#E4D2C0] bg-gradient-to-r from-[#2C1809] to-[#38240D] p-8 sm:p-12 text-white shadow-xl">
             <div className="grid lg:grid-cols-12 gap-8 items-center">
               <div className="lg:col-span-8">
-                <span className="inline-flex items-center gap-2 rounded-full bg-[#C05800] px-4 py-1.5 text-xs font-bold text-white uppercase tracking-wider">
+                <span className="inline-flex items-center gap-2 rounded-full bg-[#9E532B] px-4 py-1.5 text-xs font-bold text-white uppercase tracking-wider">
                   <Zap size={14} /> Emergency Breakdown Helpline
                 </span>
 
@@ -223,41 +236,41 @@ export default function ServicesPage() {
                   Facing an Equipment Emergency in ICU or Lab?
                 </h3>
 
-                <p className="mt-3 text-base text-[#E8D3BC] leading-relaxed">
+                <p className="mt-3 text-base text-[#E4D2C0] leading-relaxed">
                   Our certified field engineers are equipped with OEM diagnostic kits and genuine spare parts for instant on-site restoration.
                 </p>
 
                 <div className="mt-6 flex flex-wrap items-center gap-6 text-sm font-semibold text-white">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 size={18} className="text-[#C05800]" />
+                    <CheckCircle2 size={18} className="text-[#E4A87C]" />
                     <span>2-Hour On-Site SLA</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 size={18} className="text-[#C05800]" />
+                    <CheckCircle2 size={18} className="text-[#E4A87C]" />
                     <span>Loaner Analyzer Option</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 size={18} className="text-[#C05800]" />
+                    <CheckCircle2 size={18} className="text-[#E4A87C]" />
                     <span>NABL Re-calibration Included</span>
                   </div>
                 </div>
               </div>
 
-              <div className="lg:col-span-4 flex flex-col items-center justify-center text-center border-t lg:border-t-0 lg:border-l border-[#E8D3BC]/20 pt-6 lg:pt-0 lg:pl-8">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#E8D3BC]">Emergency Dispatch</p>
+              <div className="lg:col-span-4 flex flex-col items-center justify-center text-center border-t lg:border-t-0 lg:border-l border-[#E4D2C0]/20 pt-6 lg:pt-0 lg:pl-8">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#E4D2C0]">Emergency Dispatch</p>
                 {emergencyPhone ? (
                   <a
                     href={`tel:${emergencyPhone.replace(/\s+/g, "")}`}
-                    className="mt-2 text-2xl font-black text-white hover:text-[#FBBF24] transition-colors inline-block"
+                    className="mt-2 text-2xl font-black text-white hover:text-[#E4A87C] transition-colors inline-block"
                   >
                     {emergencyPhone}
                   </a>
                 ) : (
-                  <p className="mt-2 text-sm text-[#E8D3BC]">24/7 Field Dispatch Active</p>
+                  <p className="mt-2 text-sm text-[#E4D2C0]">24/7 Field Dispatch Active</p>
                 )}
                 <Link
                   href={makeLink("/contact")}
-                  className="mt-5 w-full rounded-2xl bg-[#C05800] py-3.5 text-center text-sm font-bold text-white shadow-lg transition-all hover:bg-[#713600]"
+                  className="mt-5 w-full rounded-2xl bg-[#9E532B] py-3.5 text-center text-sm font-bold text-white shadow-lg transition-all hover:bg-[#7D3B17]"
                 >
                   Book Priority Repair
                 </Link>
