@@ -6,13 +6,13 @@ import PageBanner from "@/components/PageBanner";
 import SectionTitle from "@/components/SectionTitle";
 import ProductCard from "@/components/ProductCard";
 import ContactForm from "@/components/ContactForm";
-import { fetchAllDynamicProducts, normalizeProduct } from "@/lib/fetchProducts";
+import { fetchAllDynamicProducts, normalizeProduct, getSyncProducts } from "@/lib/fetchProducts";
 import { subscribeToCatalog } from "@/lib/data-fetcher";
 import { Search, X, Filter, Package, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 
 function ProductsContent({ city }) {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState(() => getSyncProducts());
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
 
@@ -54,7 +54,7 @@ function ProductsContent({ city }) {
 
     loadInitialProducts();
 
-    // Subscribe to real-time catalog changes from Firestore
+    // Subscribe to real-time catalog changes from Admin API
     const unsubscribe = subscribeToCatalog((updatedCatalog) => {
       if (isMounted && Array.isArray(updatedCatalog) && updatedCatalog.length > 0) {
         const normalized = updatedCatalog
@@ -271,4 +271,4 @@ export default function ProductsPage({ city }) {
       <ProductsContent city={city} />
     </Suspense>
   );
-}
+}

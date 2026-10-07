@@ -5,7 +5,7 @@ import Image from "next/image";
 import toast from "react-hot-toast";
 import { usePathname } from "next/navigation";
 import { fallbackProducts, makeSlug } from "@/data/productsData";
-import { fetchAllDynamicProducts } from "@/lib/fetchProducts";
+import { fetchAllDynamicProducts, getSyncProducts } from "@/lib/fetchProducts";
 import {
   FaPlay,
   FaShareAlt,
@@ -32,8 +32,8 @@ import {
   getDoc,
   addDoc,
   collection,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+  db,
+} from "@/lib/admin-data";
 
 const loadImageBase64 = async (src) => {
   try {
@@ -61,136 +61,22 @@ const loadImageBase64 = async (src) => {
       });
     }
 
-    // Method 1: Local proxy
-    try {
-      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`;
-      const response = await fetch(proxyUrl);
-      if (response.ok) {
-        const blob = await response.blob();
-        return await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error("FileReader failed"));
-          reader.readAsDataURL(blob);
-        });
-      }
-    } catch (proxyErr) {
-      console.warn("Proxy method failed, trying direct fetch...", proxyErr);
+    const response = await fetch(src, { cache: "force-cache" });
+    if (response.ok) {
+      const blob = await response.blob();
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("FileReader failed"));
+        reader.readAsDataURL(blob);
+      });
     }
 
-    // Method 2: Direct fetch fallback
-    try {
-      const response = await fetch(src, { cache: "no-cache" });
-      if (response.ok) {
-        const blob = await response.blob();
-        return await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error("FileReader failed"));
-          reader.readAsDataURL(blob);
-        });
-      }
-    } catch (fetchErr) {
-      console.warn("fetch method failed, falling back to canvas...", fetchErr);
-    }
-
-    // Method 3: Fallback HTML Image element
-    return await new Promise((resolve, reject) => {
-      const img = new window.Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-        try {
-          resolve(canvas.toDataURL("image/png"));
-        } catch (e) {
-          reject(e);
-        }
-      };
-      img.onerror = () => reject(new Error("Image element load failed"));
-      img.src = src;
-    });
+    return null;
   } catch (err) {
-    console.error("loadImageBase64 failed for src:", src, err);
-    throw err;
+    console.warn("loadImageBase64 failed:", err.message);
+    return null;
   }
-};
-
-const getProductSpecs = (product) => {
-  const specsMap = new Map();
-
-  const standardFields = [
-    ["Brand", "brand"],
-    ["Model", "model"],
-    ["Instrument", "instrument"],
-    ["Category", "category"],
-    ["Capacity", "capacity"],
-    ["Throughput", "throughput"],
-    ["Usage", "usage"],
-    ["Automation", "automation"],
-    ["Availability", "availability"],
-  ];
-
-  standardFields.forEach(([label, key]) => {
-    const val = product[key];
-    if (val && String(val).trim() && String(val).trim() !== "N/A") {
-      specsMap.set(label, String(val).trim());
-    }
-  });
-
-  const blacklist = new Set([
-    "title", "desc", "description", "image", "images", "slug",
-    "uid", "video", "pdf", "isPublished", "category", "subCategory",
-    "brand", "model", "instrument", "capacity", "throughput",
-    "usage", "automation", "availability",
-    "price", "categoryProductId", "category_product_id", "categoryproductid",
-    "id", "createdAt", "created_at", "createdat",
-  ]);
-
-  if (product.parameters && typeof product.parameters === "string") {
-    const parts = product.parameters.split("|");
-    parts.forEach((part) => {
-      const colonIndex = part.indexOf(":");
-      if (colonIndex !== -1) {
-        const label = part.substring(0, colonIndex).trim();
-        const value = part.substring(colonIndex + 1).trim();
-        const lowerLabel = label.toLowerCase();
-        if (
-          label &&
-          value &&
-          value !== "N/A" &&
-          !blacklist.has(lowerLabel) &&
-          !lowerLabel.includes("price") &&
-          !lowerLabel.includes("id")
-        ) {
-          const cleanLabel = label.replace(/\b\w/g, (c) => c.toUpperCase());
-          specsMap.set(cleanLabel, value);
-        }
-      }
-    });
-  }
-
-  if (product.specs && typeof product.specs === "object") {
-    if (Array.isArray(product.specs)) {
-      product.specs.forEach((item) => {
-        if (item && item.label && item.value && String(item.value).trim() !== "N/A") {
-          specsMap.set(item.label, String(item.value).trim());
-        }
-      });
-    } else {
-      Object.entries(product.specs).forEach(([k, v]) => {
-        if (v && String(v).trim() && String(v).trim() !== "N/A") {
-          const label = k.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ").trim().replace(/\b\w/g, (c) => c.toUpperCase());
-          specsMap.set(label, String(v).trim());
-        }
-      });
-    }
-  }
-
-  return Array.from(specsMap.entries());
 };
 
 const getWebsiteDomain = () => {
@@ -203,10 +89,44 @@ const getWebsiteDomain = () => {
   return "globalhealthcart.com";
 };
 
+function findInitialProduct(slug) {
+  if (!slug) return fallbackProducts[0];
+  const syncProducts = getSyncProducts();
+  let found = syncProducts.find(
+    (p) => p.slug === slug || makeSlug(p.title) === slug || p.id === slug
+  );
+  if (!found) {
+    found = fallbackProducts.find(
+      (p) => p.slug === slug || makeSlug(p.title) === slug || p.id === slug
+    );
+  }
+  if (!found && fallbackProducts.length > 0) {
+    const prettyTitle = slug
+      ? slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+      : "Biomedical Equipment";
+    found = {
+      ...fallbackProducts[0],
+      title: prettyTitle,
+      slug: slug || "biomedical-equipment",
+    };
+  }
+  return found || null;
+}
+
 export default function ProductDetails({ slug }) {
-  const [product, setProduct] = useState(null);
+  const initial = useMemo(() => findInitialProduct(slug), [slug]);
+  const [product, setProduct] = useState(() => initial);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [selectedImage, setSelectedImage] = useState("");
+  const [selectedImage, setSelectedImage] = useState(() => {
+    if (!initial) return "/logo.png";
+    return (
+      (Array.isArray(initial.images) && initial.images[0]) ||
+      initial.image ||
+      initial.imgUrl ||
+      initial.imageUrl ||
+      "/logo.png"
+    );
+  });
   const [selectedMedia, setSelectedMedia] = useState("image");
   const [showShare, setShowShare] = useState(false);
   const [contactInfo, setContactInfo] = useState([]);
@@ -316,20 +236,8 @@ export default function ProductDetails({ slug }) {
           );
         }
 
-        if (!found && fallbackProducts.length > 0) {
-          const prettyTitle = slug
-            ? slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-            : "Biomedical Equipment";
-          found = {
-            ...fallbackProducts[0],
-            title: prettyTitle,
-            slug: slug || "biomedical-equipment",
-          };
-        }
-
-        setProduct(found);
-
         if (found) {
+          setProduct(found);
           const mainImg =
             (Array.isArray(found.images) && found.images[0]) ||
             found.image ||
@@ -337,14 +245,9 @@ export default function ProductDetails({ slug }) {
             found.imageUrl ||
             "/logo.png";
           setSelectedImage(mainImg);
-          setSelectedMedia("image");
         }
       } catch (error) {
-        console.error("Error loading product:", error);
-        let found = fallbackProducts.find(
-          (p) => p.slug === slug || makeSlug(p.title) === slug || p.id === slug
-        );
-        setProduct(found || null);
+        console.warn("Error revalidating dynamic product:", error);
       }
     };
 

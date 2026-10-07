@@ -49,11 +49,13 @@ const workflowSteps = [
   },
 ];
 
+import { doc, getDoc, db } from "@/lib/admin-data";
+
 export default function ServicesPage() {
-  const [services, setServices] = useState([]);
+  const [services, setServices] = useState(() => fallbackServices);
   const [pageData, setPageData] = useState(null);
   const [contactInfo, setContactInfo] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const pathname = usePathname();
   const pathParts = pathname.split("/").filter(Boolean);
@@ -81,31 +83,24 @@ export default function ServicesPage() {
   useEffect(() => {
     const fetchServicesAndContact = async () => {
       try {
-        const [{ doc, getDoc }, { db }] = await Promise.all([
-          import("firebase/firestore"),
-          import("@/lib/firebase"),
-        ]);
-
-        const [servicesSnap, contactSnap] = await Promise.all([
+        const [servicesSnap, contactSnap] = await Promise.allSettled([
           getDoc(doc(db, "websites", "globalhealthcartcom", "pages", "services")),
           getDoc(doc(db, "websites", "globalhealthcartcom", "pages", "contact")),
         ]);
 
-        if (servicesSnap.exists()) {
-          const data = servicesSnap.data();
+        if (servicesSnap.status === "fulfilled" && servicesSnap.value?.exists()) {
+          const data = servicesSnap.value.data();
           setPageData(data);
           if (Array.isArray(data.services) && data.services.length > 0) {
             setServices(data.services);
           }
         }
 
-        if (contactSnap.exists()) {
-          setContactInfo(contactSnap.data().contactInfo || []);
+        if (contactSnap.status === "fulfilled" && contactSnap.value?.exists()) {
+          setContactInfo(contactSnap.value.data()?.contactInfo || []);
         }
       } catch (error) {
-        console.error("Error loading services/contact data:", error);
-      } finally {
-        setLoading(false);
+        console.warn("Error background loading services/contact data:", error);
       }
     };
 

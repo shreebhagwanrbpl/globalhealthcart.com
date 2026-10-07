@@ -2,8 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { doc, getDoc } from "@/lib/admin-data";
+import { db } from "@/lib/admin-data";
 import PageBanner from "@/components/PageBanner";
 import SectionTitle from "@/components/SectionTitle";
 import ContactForm from "@/components/ContactForm";
@@ -136,7 +136,7 @@ export default function ContactPage() {
       <section className="section-padding bg-gradient-to-b from-[#FAF5EE] via-white to-[#FAF5EE]">
         <div className="container-custom">
           <div className="grid lg:grid-cols-12 gap-12 items-start">
-            {/* Left Contact Cards - 100% Dynamic from Firestore */}
+            {/* Left Contact Cards - 100% Dynamic from Admin API */}
             <div className="lg:col-span-5 space-y-6">
               <SectionTitle
                 badge="Reach Us Directly"

@@ -1,140 +1,104 @@
-import { db } from "@/lib/firebase";
-import {
-    collection,
-    getDocs,
-    doc,
-    getDoc,
-} from "firebase/firestore";
+import { adminFetch } from "@/lib/admin-api";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export default async function sitemap() {
-    const baseUrl =
-        "https://globalhealthcart.com";
+  const baseUrl = "https://globalhealthcart.com";
+  const urls = [];
 
-    const urls = [];
+  const staticPaths = [
+    "",
+    "/about",
+    "/services",
+    "/contact",
+    "/items",
+  ];
 
-    // Static Pages
-    urls.push(
-        {
-            url: baseUrl,
-            lastModified: new Date(),
-        },
-        {
-            url: `${baseUrl}/about`,
-            lastModified: new Date(),
-        },
-        {
-            url: `${baseUrl}/services`,
-            lastModified: new Date(),
-        },
-        {
-            url: `${baseUrl}/contact`,
-            lastModified: new Date(),
-        },
-        {
-            url: `${baseUrl}/items`,
-            lastModified: new Date(),
-        }
+  for (const path of staticPaths) {
+    urls.push({
+      url: `${baseUrl}${path}`,
+      lastModified: new Date(),
+    });
+  }
+
+  try {
+    const districtResponse = await adminFetch(
+      "/api/site-data",
+      {},
+      {
+        type: "districts",
+        pageType: "districts",
+      }
     );
 
-    try {
-        // DISTRICTS
-        const districtSnap =
-            await getDocs(
-                collection(
-                    db,
-                    "websites",
-                    "globalhealthcartcom",
-                    "districts"
-                )
-            );
+    const districts =
+      districtResponse?.data?.districts ??
+      districtResponse?.data ??
+      districtResponse?.districts ??
+      districtResponse;
 
-        const districts =
-            districtSnap.docs.map(
-                (doc) => doc.data()
-            );
+    const safeDistricts =
+      Array.isArray(districts)
+        ? districts.filter(
+            (district) =>
+              district?.slug
+          )
+        : [];
 
-        districts.forEach((district) => {
-            const slug =
-                district.slug;
+    for (const district of safeDistricts) {
+      const slug = district.slug;
 
-            if (!slug) return;
-
-            urls.push(
-                {
-                    url: `${baseUrl}/${slug}`,
-                    lastModified:
-                        new Date(),
-                },
-                {
-                    url: `${baseUrl}/${slug}/about`,
-                    lastModified:
-                        new Date(),
-                },
-                {
-                    url: `${baseUrl}/${slug}/services`,
-                    lastModified:
-                        new Date(),
-                },
-                {
-                    url: `${baseUrl}/${slug}/contact`,
-                    lastModified:
-                        new Date(),
-                },
-                {
-                    url: `${baseUrl}/${slug}/items`,
-                    lastModified:
-                        new Date(),
-                }
-            );
+      for (const path of staticPaths) {
+        urls.push({
+          url: `${baseUrl}/${slug}${path}`,
+          lastModified: new Date(),
         });
-
-        // PRODUCTS
-        const productDoc =
-            await getDoc(
-                doc(
-                    db,
-                    "websites",
-                    "globalhealthcartcom",
-                    "pages",
-                    "products"
-                )
-            );
-
-        const products =
-            productDoc.data()
-                ?.products || [];
-
-        products.forEach(
-            (product) => {
-                if (!product.slug) return;
-
-                // Main Product URL
-                urls.push({
-                    url: `${baseUrl}/items/${product.slug}`,
-                    lastModified:
-                        new Date(),
-                });
-
-                // District Product URLs
-                districts.forEach(
-                    (district) => {
-                        if (!district.slug) return;
-
-                        urls.push({
-                            url: `${baseUrl}/${district.slug}/items/${product.slug}`,
-                            lastModified:
-                                new Date(),
-                        });
-                    }
-                );
-            }
-        );
-    } catch (error) {
-        console.error(
-            "Sitemap Error:",
-            error
-        );
+      }
     }
 
-    return urls;
+    const catalog =
+      await adminFetch("/api/catalog");
+
+    const products =
+      catalog?.products ??
+      catalog?.data?.products ??
+      catalog?.data ??
+      catalog;
+
+    if (Array.isArray(products)) {
+      for (const product of products) {
+        if (!product?.slug) continue;
+
+        urls.push({
+          url: `${baseUrl}/items/${product.slug}`,
+          lastModified: new Date(),
+        });
+
+        for (const district of safeDistricts) {
+          urls.push({
+            url:
+              `${baseUrl}/${district.slug}` +
+              `/items/${product.slug}`,
+            lastModified: new Date(),
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error(
+      "Sitemap Admin API error:",
+      error
+    );
+  }
+
+  // Remove accidental duplicates.
+  const unique = new Map();
+
+  for (const item of urls) {
+    unique.set(item.url, item);
+  }
+
+  return Array.from(unique.values());
 }

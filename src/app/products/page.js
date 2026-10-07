@@ -16,10 +16,10 @@ import {
 import PageBanner from "@/components/PageBanner";
 import SectionTitle from "@/components/SectionTitle";
 
-import { fetchAllDynamicProducts } from "@/lib/fetchProducts";
+import { fetchAllDynamicProducts, getSyncProducts } from "@/lib/fetchProducts";
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(() => getSyncProducts());
   const [search, setSearch] = useState("");
   const [openedCategory, setOpenedCategory] = useState("");
   const [activeCategory, setActiveCategory] = useState("");

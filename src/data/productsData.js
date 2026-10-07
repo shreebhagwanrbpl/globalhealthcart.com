@@ -21,7 +21,7 @@ export const fallbackProducts = [
     },
     badge: "Best Seller",
     status: "In Stock",
-    image: ""
+    image: "https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&w=800&q=75"
   },
   {
     id: "prod-2",
@@ -38,7 +38,7 @@ export const fallbackProducts = [
     },
     badge: "ISO Certified",
     status: "In Stock",
-    image: ""
+    image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=75"
   },
   {
     id: "prod-3",
@@ -55,7 +55,7 @@ export const fallbackProducts = [
     },
     badge: "Advanced Tech",
     status: "In Stock",
-    image: ""
+    image: "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=75"
   },
   {
     id: "prod-4",
@@ -72,7 +72,7 @@ export const fallbackProducts = [
     },
     badge: "ICU Standard",
     status: "In Stock",
-    image: ""
+    image: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=800&q=75"
   },
   {
     id: "prod-5",
@@ -89,7 +89,7 @@ export const fallbackProducts = [
     },
     badge: "Rapid Test",
     status: "In Stock",
-    image: ""
+    image: "https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?auto=format&fit=crop&w=800&q=75"
   },
   {
     id: "prod-6",
@@ -106,7 +106,7 @@ export const fallbackProducts = [
     },
     badge: "Precision Optics",
     status: "In Stock",
-    image: ""
+    image: "https://images.unsplash.com/photo-1514733670139-4d87a1941d55?auto=format&fit=crop&w=800&q=75"
   },
   {
     id: "prod-7",
@@ -123,7 +123,7 @@ export const fallbackProducts = [
     },
     badge: "High Power",
     status: "In Stock",
-    image: ""
+    image: "https://images.unsplash.com/photo-1583912267670-6575ad472688?auto=format&fit=crop&w=800&q=75"
   },
   {
     id: "prod-8",
@@ -140,7 +140,7 @@ export const fallbackProducts = [
     },
     badge: "CE Certified",
     status: "In Stock",
-    image: ""
+    image: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=800&q=75"
   }
 ];
 

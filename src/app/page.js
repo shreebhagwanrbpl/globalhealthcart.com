@@ -111,12 +111,18 @@ const testimonials = [
   },
 ];
 
+import { doc, getDoc, db } from "@/lib/admin-data";
+import { fetchAllDynamicProducts, getSyncProducts } from "@/lib/fetchProducts";
+
 export default function Home({ city }) {
-  const [services, setServices] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [services, setServices] = useState(() => fallbackServices);
+  const [products, setProducts] = useState(() => {
+    const initial = getSyncProducts();
+    return initial && initial.length > 0 ? initial : fallbackProducts;
+  });
   const [homeData, setHomeData] = useState(null);
   const [contactInfo, setContactInfo] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const pathname = usePathname();
   const pathParts = pathname.split("/").filter(Boolean);
@@ -138,71 +144,43 @@ export default function Home({ city }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [{ doc, getDoc }, { db }, { fetchAllDynamicProducts }] =
-          await Promise.all([
-            import("firebase/firestore"),
-            import("@/lib/firebase"),
-            import("@/lib/fetchProducts"),
-          ]);
+        // Parallel non-blocking fetches
+        const [homeSnap, contactSnap, serviceSnap, fetchedProducts] = await Promise.allSettled([
+          getDoc(doc(db, "websites", "globalhealthcartcom", "pages", "home")),
+          getDoc(doc(db, "websites", "globalhealthcartcom", "pages", "contact")),
+          getDoc(doc(db, "websites", "globalhealthcartcom", "pages", "services")),
+          fetchAllDynamicProducts(),
+        ]);
 
-        // Fetch home page configuration
-        try {
-          const homeSnap = await getDoc(
-            doc(db, "websites", "globalhealthcartcom", "pages", "home")
-          );
-          if (homeSnap.exists()) {
-            setHomeData(homeSnap.data());
-          }
-        } catch (homeErr) {
-          console.error("Error fetching home data:", homeErr);
+        if (homeSnap.status === "fulfilled" && homeSnap.value?.exists()) {
+          setHomeData(homeSnap.value.data());
         }
 
-        // Fetch contact information
-        try {
-          const contactSnap = await getDoc(
-            doc(db, "websites", "globalhealthcartcom", "pages", "contact")
-          );
-          if (contactSnap.exists()) {
-            setContactInfo(contactSnap.data().contactInfo || []);
-          }
-        } catch (contactErr) {
-          console.error("Error fetching contact data:", contactErr);
+        if (contactSnap.status === "fulfilled" && contactSnap.value?.exists()) {
+          setContactInfo(contactSnap.value.data()?.contactInfo || []);
         }
 
-        // Fetch services dynamically from Firestore (no fallback)
-        try {
-          const serviceSnap = await getDoc(
-            doc(db, "websites", "globalhealthcartcom", "pages", "services")
-          );
-          if (serviceSnap.exists() && serviceSnap.data().services?.length > 0) {
-            setServices(serviceSnap.data().services);
+        if (serviceSnap.status === "fulfilled" && serviceSnap.value?.exists()) {
+          const srvData = serviceSnap.value.data()?.services;
+          if (Array.isArray(srvData) && srvData.length > 0) {
+            setServices(srvData);
           }
-        } catch (servErr) {
-          console.error("Error fetching services:", servErr);
         }
 
-        // Fetch products dynamically from Firestore (no fallback)
-        try {
-          const fetchedProducts = await fetchAllDynamicProducts();
-          if (fetchedProducts && fetchedProducts.length > 0) {
-            setProducts(fetchedProducts);
-          }
-        } catch (prodErr) {
-          console.error("Error fetching products:", prodErr);
+        if (fetchedProducts.status === "fulfilled" && Array.isArray(fetchedProducts.value) && fetchedProducts.value.length > 0) {
+          setProducts(fetchedProducts.value);
         }
       } catch (err) {
-        console.error("Error loading page data:", err);
-      } finally {
-        setLoading(false);
+        console.warn("Error background syncing page data:", err);
       }
     };
 
     fetchData();
   }, []);
 
-  // Show only 3 products and 3 services
-  const displayedProducts = products.slice(0, 3);
-  const displayedServices = services.slice(0, 3);
+  // Show strictly 3 products and 3 services on home page
+  const displayedProducts = (products && products.length > 0 ? products : fallbackProducts).slice(0, 3);
+  const displayedServices = (services && services.length > 0 ? services : fallbackServices).slice(0, 3);
 
   const serviceIcons = [
     <Microscope size={28} key={1} />,

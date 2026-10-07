@@ -27,7 +27,7 @@ const FALLBACK_SLIDES = [
   },
   {
     type: "image",
-    url: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1900&q=80",
+    url: "https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&w=1900&q=80",
     badge: "Diagnostic Excellence",
     caption: "High-Throughput Pathology Equipment",
   },
@@ -50,7 +50,7 @@ export default function HeroCarousel({
   const [touchEnd, setTouchEnd] = useState(null);
   const videoRefs = useRef({});
 
-  // Parse media items from Firestore home data
+  // Parse media items from Admin API home data
   const parseMediaList = (data) => {
     if (!data) return [];
     const list = [];
@@ -135,7 +135,7 @@ export default function HeroCarousel({
   const dbSlides = parseMediaList(homeData);
   const slides = dbSlides.length > 0 ? dbSlides : FALLBACK_SLIDES;
 
-  // Dynamic texts from Admin Firestore data
+  // Dynamic texts from Admin Admin API data
   const heroTitle =
     homeData?.title?.trim() ||
     (locationTitle

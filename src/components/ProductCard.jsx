@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ShieldCheck, ArrowRight, Microscope } from "lucide-react";
+import {
+  ShieldCheck,
+  ArrowRight,
+  Microscope,
+} from "lucide-react";
 import { makeSlug } from "@/data/productsData";
 
 export default function ProductCard({
@@ -13,6 +17,9 @@ export default function ProductCard({
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
+  // --------------------------------------------------
+  // Product Data
+  // --------------------------------------------------
   const {
     id,
     title,
@@ -34,168 +41,275 @@ export default function ProductCard({
     automation,
     usage,
     price,
-  } = product;
+  } = product || {};
 
-  const productSlug = slug || makeSlug(title);
+  // --------------------------------------------------
+  // Product Slug
+  // --------------------------------------------------
+  const productSlug =
+    slug || (title ? makeSlug(title) : id || "product");
+
   const pdpLink = makeLink(`/items/${productSlug}`);
+
+  // --------------------------------------------------
+  // Description
+  // --------------------------------------------------
   const displayDesc = desc || description || "";
 
-  const hasValidImage =
-    image &&
+  // --------------------------------------------------
+  // Display Image
+  // --------------------------------------------------
+  const hasProductImage =
     typeof image === "string" &&
     image.trim() !== "" &&
-    image !== "/logo.png" &&
-    !imgError;
+    image !== "/logo.png";
 
-  // Extract exactly 2-3 genuine dynamic specs that exist on the product from Admin
-  const dynamicSpecs = [];
-  if (brand && String(brand).trim() && String(brand).trim() !== "N/A") {
-    dynamicSpecs.push(["Brand", String(brand).trim()]);
-  }
-  if (model && String(model).trim() && String(model).trim() !== "N/A") {
-    dynamicSpecs.push(["Model", String(model).trim()]);
-  }
-  if (throughput && String(throughput).trim() && String(throughput).trim() !== "N/A") {
-    dynamicSpecs.push(["Throughput", String(throughput).trim()]);
-  } else if (capacity && String(capacity).trim() && String(capacity).trim() !== "N/A") {
-    dynamicSpecs.push(["Capacity", String(capacity).trim()]);
-  } else if (instrument && String(instrument).trim() && String(instrument).trim() !== "N/A") {
-    dynamicSpecs.push(["Instrument", String(instrument).trim()]);
-  } else if (automation && String(automation).trim() && String(automation).trim() !== "N/A") {
-    dynamicSpecs.push(["Automation", String(automation).trim()]);
-  } else if (usage && String(usage).trim() && String(usage).trim() !== "N/A") {
-    dynamicSpecs.push(["Usage", String(usage).trim()]);
-  }
+  const displayImage =
+    hasProductImage && !imgError ? image : null;
 
-  // If we have less than 2, pull from custom specs object if provided
-  if (dynamicSpecs.length < 2 && specs && typeof specs === "object") {
-    Object.entries(specs).forEach(([k, v]) => {
-      if (
-        dynamicSpecs.length < 3 &&
-        v &&
-        String(v).trim() &&
-        String(v).trim() !== "N/A" &&
-        !dynamicSpecs.some(([ek]) => ek.toLowerCase() === k.toLowerCase())
-      ) {
-        dynamicSpecs.push([k, String(v).trim()]);
-      }
-    });
-  }
+  const hasValidImage = Boolean(displayImage);
 
-  const displayStatus = status || availability || "In Stock";
+  // --------------------------------------------------
+  // Status
+  // --------------------------------------------------
+  const displayStatus =
+    status || availability || "In Stock";
+
+  // --------------------------------------------------
+  // Dynamic Specifications
+  // --------------------------------------------------
+  const dynamicSpecs = useMemo(() => {
+    const combinedSpecs = {
+      ...specs,
+
+      // Add common product-level specifications
+      ...(brand ? { Brand: brand } : {}),
+      ...(model ? { Model: model } : {}),
+      ...(throughput ? { Throughput: throughput } : {}),
+      ...(capacity ? { Capacity: capacity } : {}),
+      ...(instrument ? { Instrument: instrument } : {}),
+      ...(automation ? { Automation: automation } : {}),
+      ...(usage ? { Usage: usage } : {}),
+    };
+
+    // Remove empty / null / undefined values
+    const cleanedSpecs = Object.entries(combinedSpecs).filter(
+      ([key, value]) =>
+        key &&
+        value !== null &&
+        value !== undefined &&
+        String(value).trim() !== ""
+    );
+
+    return cleanedSpecs;
+  }, [
+    specs,
+    brand,
+    model,
+    throughput,
+    capacity,
+    instrument,
+    automation,
+    usage,
+  ]);
+
+  // --------------------------------------------------
+  // Format Specification Key
+  // --------------------------------------------------
+  const formatSpecKey = (key) => {
+    if (!key) return "";
+
+    return String(key)
+      .replace(/([A-Z])/g, " $1")
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  // --------------------------------------------------
+  // Format Specification Value
+  // --------------------------------------------------
+  const formatSpecValue = (value) => {
+    if (Array.isArray(value)) {
+      return value.join(", ");
+    }
+
+    if (typeof value === "object" && value !== null) {
+      return Object.values(value).join(", ");
+    }
+
+    return String(value);
+  };
 
   return (
     <div className="group flex flex-col justify-between overflow-hidden rounded-3xl border border-[#E4D2C0] bg-white shadow-md transition-all duration-300 hover:-translate-y-2 hover:border-[#9E532B]/50 hover:shadow-2xl hover:shadow-[#9E532B]/15">
       <div>
-        {/* Image Container Link */}
+        {/* ==================================================
+            IMAGE CONTAINER
+        ================================================== */}
         <Link
           href={pdpLink}
-          className="relative block h-60 w-full overflow-hidden bg-gradient-to-b from-[#FAF5EE] to-white p-4 border-b border-[#E4D2C0]/50"
+          className="relative block h-60 w-full overflow-hidden border-b border-[#E4D2C0]/50 bg-gradient-to-b from-[#FAF5EE] to-white p-4"
         >
           {hasValidImage ? (
             <>
-              {/* Shimmer loading skeleton */}
+              {/* Loading Skeleton */}
               {!imgLoaded && (
-                <div className="absolute inset-0 z-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#F5ECE1] via-[#FAF5EE] to-[#EFE1D2] animate-pulse">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/90 shadow-sm border border-[#E4D2C0] text-[#9E532B]">
-                    <Microscope size={26} className="animate-bounce text-[#9E532B]" />
+                <div className="absolute inset-0 z-0 flex flex-col items-center justify-center animate-pulse bg-gradient-to-br from-[#F5ECE1] via-[#FAF5EE] to-[#EFE1D2]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#E4D2C0] bg-white/90 text-[#9E532B] shadow-sm">
+                    <Microscope
+                      size={24}
+                      className="text-[#9E532B]"
+                    />
                   </div>
-                  <span className="mt-2 text-[11px] font-bold uppercase tracking-wider text-[#6B5645]">
-                    Loading Image...
-                  </span>
                 </div>
               )}
 
               <Image
-                src={image}
+                src={displayImage}
                 alt={title || "Biomedical Equipment"}
                 fill
+                quality={80}
                 onLoad={() => setImgLoaded(true)}
-                onError={() => setImgError(true)}
-                className={`object-contain p-2 transition-all duration-500 group-hover:scale-105 ${
-                  imgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-95"
-                }`}
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                onError={() => {
+                  setImgError(true);
+                  setImgLoaded(false);
+                }}
+                className={`object-contain p-2 transition-all duration-300 group-hover:scale-105 ${imgLoaded
+                  ? "scale-100 opacity-100"
+                  : "scale-[0.98] opacity-90"
+                  }`}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px"
               />
             </>
           ) : (
-            /* Premium Medical Instrument Placeholder */
+            /* ==================================================
+               PREMIUM PLACEHOLDER
+            ================================================== */
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#FAF5EE] via-[#F5ECE1] to-[#EFE1D2] p-6 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-md border border-[#E4D2C0] text-[#9E532B] transition-transform duration-300 group-hover:scale-110">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-[#E4D2C0] bg-white text-[#9E532B] shadow-md transition-transform duration-300 group-hover:scale-110">
                 <Microscope size={32} />
               </div>
+
               <span className="mt-3 text-xs font-extrabold uppercase tracking-wider text-[#38240D]">
                 {category || "Diagnostic Equipment"}
               </span>
+
               <span className="mt-0.5 text-[10px] font-semibold text-[#6B5645]">
                 Certified Specification
               </span>
             </div>
           )}
 
-          {/* Overlay Badges */}
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+          {/* ==================================================
+              BADGES
+          ================================================== */}
+          <div className="absolute left-3 right-3 top-3 z-10 flex items-center justify-between gap-2">
             {badge ? (
-              <span className="rounded-full border border-[#9E532B]/30 bg-white/95 backdrop-blur-md px-3 py-1 text-xs font-extrabold text-[#9E532B] shadow-sm">
+              <span className="max-w-[150px] truncate rounded-full border border-[#9E532B]/30 bg-white/95 px-3 py-1 text-xs font-extrabold text-[#9E532B] shadow-sm backdrop-blur-md">
                 {badge}
               </span>
             ) : (
-              <span className="rounded-full bg-white/95 backdrop-blur-md px-3 py-1 text-xs font-bold text-[#38240D] shadow-sm truncate max-w-[150px]">
-                {subCategory || category}
+              <span className="max-w-[150px] truncate rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-[#38240D] shadow-sm backdrop-blur-md">
+                {subCategory || category || "Equipment"}
               </span>
             )}
 
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#9E532B] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm shrink-0">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#9E532B] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
               <ShieldCheck size={12} />
               {displayStatus}
             </span>
           </div>
         </Link>
 
-        {/* Details */}
+        {/* ==================================================
+            PRODUCT DETAILS
+        ================================================== */}
         <div className="p-6">
+          {/* Category */}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#9E532B] truncate">
-              {subCategory && subCategory !== category ? `${category} • ${subCategory}` : category}
+            <span className="truncate text-xs font-bold uppercase tracking-wider text-[#9E532B]">
+              {subCategory && subCategory !== category
+                ? `${category || "Equipment"} • ${subCategory}`
+                : category || "Biomedical Equipment"}
             </span>
           </div>
 
-          <Link href={pdpLink} className="block mt-1.5">
-            <h3 className="text-xl font-bold text-[#38240D] leading-tight group-hover:text-[#9E532B] transition-colors line-clamp-2">
-              {title}
+          {/* Product Title */}
+          <Link
+            href={pdpLink}
+            className="mt-1.5 block"
+          >
+            <h3 className="line-clamp-2 text-xl font-bold leading-tight text-[#38240D] transition-colors group-hover:text-[#9E532B]">
+              {title || "Biomedical Equipment"}
             </h3>
           </Link>
 
+          {/* Description */}
           {displayDesc && (
-            <p className="mt-2.5 text-sm text-[#6B5645] line-clamp-2 leading-relaxed">
+            <p className="mt-2.5 line-clamp-2 text-sm leading-relaxed text-[#6B5645]">
               {displayDesc}
             </p>
           )}
 
-          {/* Key Dynamic Specs (2-3 specs only) */}
+          {/* ==================================================
+              DYNAMIC SPECS
+          ================================================== */}
           {dynamicSpecs.length > 0 && (
-            <div className="mt-4 rounded-2xl border border-[#E4D2C0] bg-[#F6ECE3] p-3 space-y-1.5 text-xs text-[#6B5645]">
-              {dynamicSpecs.slice(0, 3).map(([key, val]) => (
-                <div key={key} className="flex justify-between items-center gap-2">
-                  <span className="font-bold text-[#38240D]">{key}:</span>
-                  <span className="text-[#9E532B] font-semibold truncate max-w-[170px]">{val}</span>
-                </div>
-              ))}
+            <div className="mt-4 space-y-1.5 rounded-2xl border border-[#E4D2C0] bg-[#F6ECE3] p-3 text-xs text-[#6B5645]">
+              {dynamicSpecs
+                .slice(0, 3)
+                .map(([key, value]) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="shrink-0 font-bold text-[#38240D]">
+                      {formatSpecKey(key)}:
+                    </span>
+
+                    <span className="max-w-[170px] truncate font-semibold text-[#9E532B]">
+                      {formatSpecValue(value)}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {/* ==================================================
+              PRICE - OPTIONAL
+          ================================================== */}
+          {price && (
+            <div className="mt-4">
+              <span className="text-sm font-semibold text-[#6B5645]">
+                Price
+              </span>
+
+              <div className="text-lg font-extrabold text-[#9E532B]">
+                {price}
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Card Action Footer */}
-      <div className="p-6 pt-0 mt-2 flex items-center gap-3">
+      {/* ==================================================
+          CARD FOOTER
+      ================================================== */}
+      <div className="mt-2 flex items-center gap-3 p-6 pt-0">
         <Link
           href={pdpLink}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#9E532B] py-3 text-center text-sm font-bold !text-white shadow-md transition-all hover:bg-[#7D3B17] hover:shadow-lg group/btn"
+          className="group/btn flex w-full items-center justify-center gap-2 rounded-2xl bg-[#9E532B] py-3 text-center text-sm font-bold !text-white shadow-md transition-all hover:bg-[#7D3B17] hover:shadow-lg"
         >
-          <span className="!text-white text-white font-bold text-sm tracking-wide">
+          <span className="text-sm font-bold tracking-wide !text-white">
             Inquire Price & Specs
           </span>
-          <ArrowRight size={16} className="!text-white text-white shrink-0 transition-transform group-hover/btn:translate-x-1" />
+
+          <ArrowRight
+            size={16}
+            className="shrink-0 !text-white transition-transform group-hover/btn:translate-x-1"
+          />
         </Link>
       </div>
     </div>

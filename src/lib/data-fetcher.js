@@ -1,357 +1,446 @@
-import { db } from "./firebase";
-import { doc, getDoc, getDocs, collection, onSnapshot } from "firebase/firestore";
+import { makeSlug } from "./catalog-utils";
+import { fallbackProducts } from "@/data/productsData";
 
-// Simple in-memory cache for Firestore documents and catalog
-const docCache = {};
-let catalogPromise = null;
+const SITE_ID = "globalhealthcartcom";
 
-const makeSlug = (text = "") =>
-    text
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-");
+// Client-side Memory + Storage SWR Cache
+const memCache = new Map();
+let cachedCatalog = null;
+let lastCatalogFetchTime = 0;
+const FRESH_TTL = 60 * 1000; // 1 minute fresh
+const STALE_TTL = 15 * 60 * 1000; // 15 minutes stale retention
 
-/**
- * Fetch a single document and cache its promise/data.
- */
+function getStorage(key) {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(`ghc_cache_${key}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && Date.now() - parsed.timestamp < STALE_TTL) {
+      return parsed.data;
+    }
+  } catch {
+    // Ignore storage parse errors
+  }
+  return null;
+}
+
+function setStorage(key, data) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      `ghc_cache_${key}`,
+      JSON.stringify({ data, timestamp: Date.now() })
+    );
+  } catch {
+    // Ignore storage write errors (e.g. quota)
+  }
+}
+
+export function getSyncCatalog() {
+  if (cachedCatalog && cachedCatalog.length > 0) {
+    return cachedCatalog;
+  }
+  const fromStorage = getStorage("catalog");
+  if (Array.isArray(fromStorage) && fromStorage.length > 0) {
+    cachedCatalog = fromStorage;
+    return fromStorage;
+  }
+  return fallbackProducts;
+}
+
+export function getSyncPage(pageType) {
+  const cacheKey = `page_${pageType}`;
+  if (memCache.has(cacheKey)) {
+    return memCache.get(cacheKey).data;
+  }
+  return getStorage(cacheKey);
+}
+
+async function fetchSitePage(pageType) {
+  const cacheKey = `page_${pageType}`;
+  const now = Date.now();
+
+  // 1. Check memory cache
+  if (memCache.has(cacheKey)) {
+    const entry = memCache.get(cacheKey);
+    if (now - entry.timestamp < FRESH_TTL) {
+      return entry.data;
+    }
+    // Stale: trigger background fetch and return immediately
+    void fetchSitePageRemote(pageType);
+    return entry.data;
+  }
+
+  // 2. Check session storage
+  const storageData = getStorage(cacheKey);
+  if (storageData) {
+    memCache.set(cacheKey, { data: storageData, timestamp: now });
+    void fetchSitePageRemote(pageType);
+    return storageData;
+  }
+
+  return fetchSitePageRemote(pageType);
+}
+
+async function fetchSitePageRemote(pageType) {
+  const cacheKey = `page_${pageType}`;
+  try {
+    const response = await fetch(
+      `/api/admin-data?op=getDoc&path=${encodeURIComponent(
+        `websites/${SITE_ID}/pages/${pageType}`
+      )}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Unable to load ${pageType}: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const data = result?.exists ? result.data : null;
+
+    if (data) {
+      memCache.set(cacheKey, { data, timestamp: Date.now() });
+      setStorage(cacheKey, data);
+    }
+
+    return data;
+  } catch (err) {
+    console.warn(`Error fetching ${pageType}:`, err.message);
+    const cached = getStorage(cacheKey);
+    return cached || null;
+  }
+}
+
 export async function fetchDocCached(path) {
-    if (docCache[path]) {
-        return docCache[path];
+  if (!path) return null;
+  const now = Date.now();
+
+  if (memCache.has(path)) {
+    const entry = memCache.get(path);
+    if (now - entry.timestamp < FRESH_TTL) {
+      return entry.data;
     }
-    if (!docCache[path + "_promise"]) {
-        docCache[path + "_promise"] = (async () => {
-            try {
-                const parts = path.split("/");
-                const docRef = doc(db, ...parts);
-                const snap = await getDoc(docRef);
-                if (snap.exists()) {
-                    const data = snap.data();
-                    docCache[path] = data;
-                    return data;
-                }
-                return null;
-            } catch (err) {
-                console.error(`Error fetching doc at ${path}:`, err);
-                // Clear promise on error to allow retries
-                delete docCache[path + "_promise"];
-                throw err;
-            }
-        })();
-    }
-    return docCache[path + "_promise"];
+    // Background refresh
+    void fetchDocRemote(path);
+    return entry.data;
+  }
+
+  const storageData = getStorage(path);
+  if (storageData) {
+    memCache.set(path, { data: storageData, timestamp: now });
+    void fetchDocRemote(path);
+    return storageData;
+  }
+
+  return fetchDocRemote(path);
 }
 
-/**
- * Fetch and process the entire products catalog (categories, subcategories, legacy list).
- * Caches the result globally to eliminate repeat network reads during client-side navigation.
- */
+async function fetchDocRemote(path) {
+  try {
+    const response = await fetch(
+      `/api/admin-data?op=getDoc&path=${encodeURIComponent(path)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Admin data ${response.status}`);
+    }
+
+    const result = await response.json();
+    const data = result?.exists ? result.data : null;
+
+    if (data) {
+      memCache.set(path, { data, timestamp: Date.now() });
+      setStorage(path, data);
+    }
+
+    return data;
+  } catch (err) {
+    console.warn(`Error fetching doc ${path}:`, err.message);
+    const cached = getStorage(path);
+    return cached || null;
+  }
+}
+
+function normalizeProduct(item = {}, category = "", subCategory = "") {
+  if (!item || typeof item !== "object") return null;
+
+  const title =
+    item.title ||
+    item.name ||
+    item.productName ||
+    item.itemName ||
+    "";
+
+  if (!String(title).trim()) return null;
+
+  const slug =
+    item.slug ||
+    item.productSlug ||
+    makeSlug(title);
+
+  const images =
+    Array.isArray(item.images) && item.images.length
+      ? item.images
+      : item.image
+        ? [item.image]
+        : item.imageUrl
+          ? [item.imageUrl]
+          : item.imgUrl
+            ? [item.imgUrl]
+            : [];
+
+  const image = item.image || images[0] || item.imageUrl || item.imgUrl || "";
+
+  return {
+    ...item,
+    id:
+      item.id ||
+      item.uid ||
+      item.productId ||
+      item.categoryProductId ||
+      slug,
+
+    uid:
+      item.uid ||
+      item.id ||
+      item.productId ||
+      slug,
+
+    productId:
+      item.productId ||
+      item.id ||
+      item.uid ||
+      slug,
+
+    title: String(title).trim(),
+    name: String(title).trim(),
+    slug,
+
+    category:
+      item.category ||
+      item.categoryName ||
+      category ||
+      "Diagnostic Equipment",
+
+    subCategory:
+      item.subCategory ||
+      item.subcategory ||
+      item.subCategoryName ||
+      subCategory ||
+      category ||
+      "General",
+
+    description:
+      item.description ||
+      item.desc ||
+      item.detail ||
+      item.summary ||
+      "",
+
+    desc:
+      item.desc ||
+      item.description ||
+      item.detail ||
+      item.summary ||
+      "",
+
+    image,
+    images: images.length > 0 ? images : image ? [image] : [],
+
+    features:
+      Array.isArray(item.features)
+        ? item.features.filter(Boolean)
+        : typeof item.features === "string"
+          ? item.features
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean)
+          : [],
+
+    isPublished:
+      item.isPublished !== false,
+  };
+}
+
+function extractProducts(response) {
+  const rows =
+    response?.products ??
+    response?.data?.products ??
+    response?.data ??
+    response;
+
+  return Array.isArray(rows) ? rows : [];
+}
+
+let inFlightCatalogPromise = null;
+
 export async function fetchFullCatalog() {
-    if (catalogPromise) {
-        return catalogPromise;
-    }
+  const now = Date.now();
 
-    catalogPromise = (async () => {
-        const startTime = performance.now();
-        try {
-            // 1. Fetch categories
-            const categorySnap = await getDocs(
-                collection(
-                    db,
-                    "websites",
-                    "globalhealthcartcom",
-                    "pages",
-                    "categoryproducts",
-                    "categories"
-                )
-            );
+  // If we already have fresh cached catalog in memory, return immediately (<1ms)
+  if (cachedCatalog && cachedCatalog.length > 0 && now - lastCatalogFetchTime < FRESH_TTL) {
+    return cachedCatalog;
+  }
 
-            const allProducts = [];
+  // If stale catalog exists, return it immediately and revalidate in background
+  if (cachedCatalog && cachedCatalog.length > 0 && now - lastCatalogFetchTime < STALE_TTL) {
+    void executeFetchCatalog();
+    return cachedCatalog;
+  }
 
-            // Fetch all subcategories in parallel to solve N+1 issue
-            await Promise.all(
-                categorySnap.docs.map(async (categoryDoc) => {
-                    const data = categoryDoc.data();
-                    const categoryName = data.category || categoryDoc.id;
+  // Check storage
+  const storageData = getStorage("catalog");
+  if (Array.isArray(storageData) && storageData.length > 0) {
+    cachedCatalog = storageData;
+    lastCatalogFetchTime = now;
+    void executeFetchCatalog();
+    return storageData;
+  }
 
-                    try {
-                        const subcategoriesCol = collection(
-                            db,
-                            "websites",
-                            "globalhealthcartcom",
-                            "pages",
-                            "categoryproducts",
-                            "categories",
-                            categoryDoc.id,
-                            "subcategories"
-                        );
+  if (inFlightCatalogPromise) {
+    return inFlightCatalogPromise;
+  }
 
-                        const subcategoriesSnap = await getDocs(subcategoriesCol);
+  inFlightCatalogPromise = executeFetchCatalog().finally(() => {
+    inFlightCatalogPromise = null;
+  });
 
-                        subcategoriesSnap.forEach((subDoc) => {
-                            const subData = subDoc.data();
-                            const subCategoryName = subData.subCategory || subDoc.id;
-
-                            const categoryProducts = (subData.products || [])
-                                .filter((p) => p.isPublished !== false)
-                                .map((item, index) => ({
-                                    ...item,
-                                    uid: `${categoryDoc.id}-${subDoc.id}-${index}`,
-                                    category: categoryName,
-                                    subCategory: subCategoryName,
-                                    slug: item.slug || makeSlug(item.title),
-                                }));
-
-                            allProducts.push(...categoryProducts);
-                        });
-                    } catch (subErr) {
-                        console.error(`Error fetching subcategories for category ${categoryDoc.id}:`, subErr);
-                    }
-
-                    // Fallback direct category products
-                    if (data.products?.length) {
-                        const directProducts = data.products
-                            .filter((p) => p.isPublished !== false)
-                            .map((item, index) => ({
-                                ...item,
-                                uid: `${categoryDoc.id}-direct-${index}`,
-                                category: categoryName,
-                                subCategory: item.subCategory || categoryName,
-                                slug: item.slug || makeSlug(item.title),
-                            }));
-                        allProducts.push(...directProducts);
-                    }
-                })
-            );
-
-            // Fetch old legacy products
-            try {
-                const oldSnap = await getDoc(
-                    doc(
-                        db,
-                        "websites",
-                        "globalhealthcartcom",
-                        "pages",
-                        "products"
-                    )
-                );
-
-                if (oldSnap.exists()) {
-                    const oldProducts = (oldSnap.data().products || [])
-                        .filter((p) => p.isPublished !== false)
-                        .map((item, index) => ({
-                            ...item,
-                            uid: `other-${index}`,
-                            category: "Other Products",
-                            subCategory: item.subCategory || "Other Products",
-                            slug: item.slug || makeSlug(item.title),
-                        }));
-
-                    allProducts.push(...oldProducts);
-                }
-            } catch (oldErr) {
-                console.error("Error fetching legacy products:", oldErr);
-            }
-
-            const duration = performance.now() - startTime;
-            console.log(`[data-fetcher] Raw Firestore fetchFullCatalog completed in ${duration.toFixed(2)}ms`);
-
-            return allProducts;
-        } catch (err) {
-            console.error("Error fetching full catalog:", err);
-            // Clear cache promise on error to allow retries
-            catalogPromise = null;
-            throw err;
-        }
-    })();
-
-    return catalogPromise;
+  return inFlightCatalogPromise;
 }
 
-/**
- * Helpers for cached document retrieval across pages
- */
+async function executeFetchCatalog() {
+  try {
+    const response = await fetch("/api/catalog");
+    if (!response.ok) {
+      throw new Error(`Catalog API ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawProducts = extractProducts(data)
+      .filter((item) => item && item.isPublished !== false)
+      .map((item) =>
+        normalizeProduct(
+          item,
+          item.category || "",
+          item.subCategory || item.subcategory || ""
+        )
+      )
+      .filter(Boolean);
+
+    // If API returned valid products, deduplicate & cache
+    if (rawProducts.length > 0) {
+      const map = new Map();
+      for (const product of rawProducts) {
+        const key = product.slug || product.productId || product.id;
+        if (!map.has(key)) {
+          map.set(key, product);
+        }
+      }
+      cachedCatalog = Array.from(map.values());
+    } else if (!cachedCatalog) {
+      cachedCatalog = fallbackProducts.map((p) => normalizeProduct(p));
+    }
+
+    lastCatalogFetchTime = Date.now();
+    setStorage("catalog", cachedCatalog);
+    return cachedCatalog;
+  } catch (error) {
+    console.warn("Catalog fetch failed, using fallback/cached:", error.message);
+    if (!cachedCatalog || cachedCatalog.length === 0) {
+      cachedCatalog = fallbackProducts.map((p) => normalizeProduct(p));
+    }
+    return cachedCatalog;
+  }
+}
+
 export async function fetchHomeData() {
-    return fetchDocCached("websites/globalhealthcartcom/pages/home");
+  return fetchSitePage("home");
 }
 
 export async function fetchContactData() {
-    return fetchDocCached("websites/globalhealthcartcom/pages/contact");
+  return fetchSitePage("contact");
 }
 
 export async function fetchServicesData() {
-    return fetchDocCached("websites/globalhealthcartcom/pages/services");
+  return fetchSitePage("services");
 }
 
 export async function fetchDistrictData(district) {
-    if (!district) return null;
-    return fetchDocCached(`websites/globalhealthcartcom/districts/${district}`);
+  if (!district) return null;
+  const path = `websites/${SITE_ID}/districts/${district}`;
+  return fetchDocCached(path);
 }
 
-/**
- * Subscribe to catalog changes in real-time.
- * Invokes onUpdate with the rebuilt products list whenever categories,
- * subcategories, or legacy products change.
- * Returns an unsubscribe function.
- */
-export function subscribeToCatalog(onUpdate) {
-    const categoriesCol = collection(
-        db,
-        "websites",
-        "globalhealthcartcom",
-        "pages",
-        "categoryproducts",
-        "categories"
+export async function fetchDistricts() {
+  const path = `websites/${SITE_ID}/districts`;
+  const cached = memCache.get(path);
+  if (cached && Date.now() - cached.timestamp < FRESH_TTL) {
+    return cached.data;
+  }
+
+  try {
+    const response = await fetch(
+      `/api/admin-data?op=getDocs&path=${encodeURIComponent(path)}`
     );
 
-    let categoryDataMap = new Map();
-    let subcategoriesDataMap = new Map(); // key: categoryId -> Map of (subcategoryId -> subDoc data)
-    let legacyProducts = [];
-    const subUnsubs = new Map(); // key: categoryId -> unsub function
-    let unsubscribes = [];
-
-    function rebuildCatalogAndNotify() {
-        const allProducts = [];
-
-        // 1. Process category docs
-        for (const [categoryId, catData] of categoryDataMap.entries()) {
-            const categoryName = catData.category || categoryId;
-
-            // Subcategories products
-            const subMap = subcategoriesDataMap.get(categoryId);
-            if (subMap) {
-                for (const [subId, subData] of subMap.entries()) {
-                    const subCategoryName = subData.subCategory || subId;
-                    const categoryProducts = (subData.products || [])
-                        .filter((p) => p.isPublished !== false)
-                        .map((item, index) => ({
-                            ...item,
-                            uid: `${categoryId}-${subId}-${index}`,
-                            category: categoryName,
-                            subCategory: subCategoryName,
-                            slug: item.slug || makeSlug(item.title),
-                        }));
-                    allProducts.push(...categoryProducts);
-                }
-            }
-
-            // Fallback direct category products
-            if (catData.products?.length) {
-                const directProducts = catData.products
-                    .filter((p) => p.isPublished !== false)
-                    .map((item, index) => ({
-                        ...item,
-                        uid: `${categoryId}-direct-${index}`,
-                        category: categoryName,
-                        subCategory: item.subCategory || categoryName,
-                        slug: item.slug || makeSlug(item.title),
-                    }));
-                allProducts.push(...directProducts);
-            }
-        }
-
-        // Add legacy products
-        allProducts.push(...legacyProducts);
-
-        onUpdate(allProducts);
+    if (!response.ok) {
+      throw new Error(`District API ${response.status}`);
     }
 
-    // Listen to legacy products
+    const result = await response.json();
+    const rows = Array.isArray(result?.docs)
+      ? result.docs.map((item, index) => ({
+          ...(item?.data || {}),
+          id:
+            item?.id ||
+            item?.data?.id ||
+            item?.data?.slug ||
+            `district-${index}`,
+          slug:
+            item?.data?.slug ||
+            item?.data?.id ||
+            makeSlug(
+              item?.data?.district ||
+              item?.data?.name ||
+              `district-${index}`
+            ),
+        }))
+      : [];
+
+    memCache.set(path, { data: rows, timestamp: Date.now() });
+    return rows;
+  } catch (err) {
+    console.warn("Failed fetching districts:", err.message);
+    return cached ? cached.data : [];
+  }
+}
+
+export function subscribeToCatalog(onUpdate) {
+  let stopped = false;
+  let timer = null;
+
+  const load = async () => {
     try {
-        const legacyUnsub = onSnapshot(
-            doc(db, "websites", "globalhealthcartcom", "pages", "products"),
-            (docSnap) => {
-                if (docSnap.exists()) {
-                    legacyProducts = (docSnap.data().products || [])
-                        .filter((p) => p.isPublished !== false)
-                        .map((item, index) => ({
-                            ...item,
-                            uid: `other-${index}`,
-                            category: "Other Products",
-                            subCategory: item.subCategory || "Other Products",
-                            slug: item.slug || makeSlug(item.title),
-                        }));
-                } else {
-                    legacyProducts = [];
-                }
-                rebuildCatalogAndNotify();
-            },
-            (err) => {
-                console.error("Error in legacy products snapshot:", err);
-            }
-        );
-        unsubscribes.push(legacyUnsub);
-    } catch (err) {
-        console.error("Failed to setup legacy products listener:", err);
+      const products = await fetchFullCatalog();
+      if (!stopped) {
+        onUpdate?.(products);
+      }
+    } catch (error) {
+      if (!stopped) {
+        console.error("Admin catalog subscription error:", error);
+      }
     }
+  };
 
-    // Listen to categories
-    try {
-        const categoriesUnsub = onSnapshot(
-            categoriesCol,
-            (categorySnap) => {
-                // Clean up listeners and data for deleted categories
-                const currentCategoryIds = new Set(categorySnap.docs.map((d) => d.id));
-                for (const catId of categoryDataMap.keys()) {
-                    if (!currentCategoryIds.has(catId)) {
-                        categoryDataMap.delete(catId);
-                        subcategoriesDataMap.delete(catId);
-                        if (subUnsubs.has(catId)) {
-                            subUnsubs.get(catId)();
-                            subUnsubs.delete(catId);
-                        }
-                    }
-                }
+  void load();
+  timer = setInterval(load, 30000);
 
-                categorySnap.docs.forEach((categoryDoc) => {
-                    const catId = categoryDoc.id;
-                    categoryDataMap.set(catId, categoryDoc.data());
-
-                    // Set up listener for subcategories if not already listening
-                    if (!subUnsubs.has(catId)) {
-                        const subCol = collection(
-                            db,
-                            "websites",
-                            "globalhealthcartcom",
-                            "pages",
-                            "categoryproducts",
-                            "categories",
-                            catId,
-                            "subcategories"
-                        );
-
-                        const subUnsub = onSnapshot(
-                            subCol,
-                            (subSnap) => {
-                                const subMap = new Map();
-                                subSnap.docs.forEach((subDoc) => {
-                                    subMap.set(subDoc.id, subDoc.data());
-                                });
-                                subcategoriesDataMap.set(catId, subMap);
-                                rebuildCatalogAndNotify();
-                            },
-                            (subErr) => {
-                                console.error(`Error in subcategories snapshot for ${catId}:`, subErr);
-                            }
-                        );
-                        subUnsubs.set(catId, subUnsub);
-                    }
-                });
-
-                rebuildCatalogAndNotify();
-            },
-            (err) => {
-                console.error("Error in categories snapshot:", err);
-            }
-        );
-        unsubscribes.push(categoriesUnsub);
-    } catch (err) {
-        console.error("Failed to setup categories listener:", err);
+  return () => {
+    stopped = true;
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
     }
-
-    // Return unsubscribe all function
-    return () => {
-        unsubscribes.forEach((unsub) => unsub());
-        subUnsubs.forEach((unsub) => unsub());
-    };
+  };
 }
